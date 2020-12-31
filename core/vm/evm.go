@@ -17,11 +17,13 @@
 package vm
 
 import (
+	"database/sql"
 	"errors"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
+	"sync"
 	"sync/atomic"
 	"time"
-	"database/sql"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -407,25 +409,47 @@ func (c *codeAndHash) Hash() common.Hash {
 }
 
 var codeDB *sql.DB = nil
+var codeMu sync.Mutex
+
+func init() {
+	openDB()
+}
 
 func openDB() {
 	var err error
 	codeDB, err = sql.Open("sqlite3", "/tmp/codedb.sqlite")
-	if err != nil { panic(err) }
-	codeDB.Exec("CREATE TABLE IF NOT EXISTS creationCode (id INTEGER NOT NULL PRIMARY KEY, code BLOB);")
-	codeDB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_creationCode_code ON creationCode(code);")
-	codeDB.Exec("CREATE TABLE IF NOT EXISTS codeHash (id INTEGER NOT NULL PRIMARY KEY, hash VARCHAR(42));")
-	codeDB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_codeHash_hash ON codeHash(hash);")
-	codeDB.Exec(`CREATE TABLE IF NOT EXISTS main (
+	if err != nil {
+		panic(err)
+	}
+	for _, stmt := range []string{
+		"CREATE TABLE IF NOT EXISTS creationCode (id INTEGER NOT NULL PRIMARY KEY, code BLOB);",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_creationCode_code ON creationCode(code);",
+		"CREATE TABLE IF NOT EXISTS codeHash (id INTEGER NOT NULL PRIMARY KEY, hash VARCHAR(42));",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_codeHash_hash ON codeHash(hash);",
+		`CREATE TABLE IF NOT EXISTS main (
 		address VARCHAR(42) NOT NULL PRIMARY KEY,
 		creationCode INTEGER NOT NULL,
 		deployedCodeHash INTEGER NOT NULL,
 		FOREIGN KEY (creationCode) REFERENCES creationCode(id),
-		FOREIGN KEY (deployedCodeHash) REFERENCES codeHash(id));`)
+		FOREIGN KEY (deployedCodeHash) REFERENCES codeHash(id));`,
+	} {
+		if _, err := codeDB.Exec(stmt); err != nil {
+			panic(err)
+		}
+	}
 }
 
+// storeCode stores the given address/creationcode/codehash combo in a database.
+// Note, this is pretty flaky, and there are a couple of scenarios where the db content will
+// contain errors:
+// 1. RPC calls invoking create, e.g. eth_call will blindly save to db
+// 2. If an outer tx (or scope in general) reverts, but there was an inner create,
+//    then the revert does not delete what was already added to the db
+// 3. If prefetching is active, the prefetch will store to db (it's disabled in this codebase though)
+// Also, the db is never Close():d, which is a bit optimistic. YMMV.
 func storeCode(address string, creationCode []byte, deployedCodeHash string) {
-	if codeDB == nil { openDB() }
+	codeMu.Lock()
+	defer codeMu.Unlock()
 	_, err := codeDB.Exec(`
 		INSERT INTO creationCode(code) VALUES (?) ON CONFLICT DO NOTHING;
 		INSERT INTO codeHash(hash) VALUES (?) ON CONFLICT DO NOTHING;
@@ -433,7 +457,9 @@ func storeCode(address string, creationCode []byte, deployedCodeHash string) {
 			SELECT ?, creationCode.id, codeHash.id FROM creationCode, codeHash
 			WHERE creationCode.code = ? AND codeHash.hash = ?;`,
 		creationCode, deployedCodeHash, address, creationCode, deployedCodeHash)
-	if err != nil { panic(err) }
+	if err != nil {
+		log.Warn("Failed to store code", "error", err)
+	}
 }
 
 // create creates a new contract using code as deployment code.
