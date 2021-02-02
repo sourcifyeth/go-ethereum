@@ -1,0 +1,30 @@
+version: "3.7"
+x-project-base:
+  &project-base
+  restart: always
+  networks:
+    - sourcify
+
+networks:
+  sourcify:
+
+services:
+  postgres:
+    <<: *project-base
+    image: postgres:13
+    container_name: postgres
+    ports:
+    - "5432:5432"
+    environment:
+    - POSTGRES_USER=postgres
+    - POSTGRES_PASSWORD=postgres
+    - POSTGRES_DB=sourcify
+  pgadmin:
+    <<: *project-base
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    ports:
+    - "5000:80"
+    environment:
+    - PGADMIN_DEFAULT_EMAIL=sourcify@gmail.com
+    - PGADMIN_DEFAULT_PASSWORD=sourcify
