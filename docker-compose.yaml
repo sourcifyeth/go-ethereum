@@ -15,16 +15,11 @@ services:
     container_name: postgres
     ports:
     - "5432:5432"
-    environment:
-    - POSTGRES_USER=postgres
-    - POSTGRES_PASSWORD=postgres
-    - POSTGRES_DB=sourcify
+    env_file: .env
   pgadmin:
     <<: *project-base
     image: dpage/pgadmin4
     container_name: pgadmin
     ports:
     - "5000:80"
-    environment:
-    - PGADMIN_DEFAULT_EMAIL=sourcify@gmail.com
-    - PGADMIN_DEFAULT_PASSWORD=sourcify
+    env_file: .env
