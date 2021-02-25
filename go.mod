@@ -39,6 +39,7 @@ require (
 	github.com/jackc/fake v0.0.0-20150926172116-812a484cc733 // indirect
 	github.com/jackc/pgx/v4 v4.10.1
 	github.com/jackpal/go-nat-pmp v1.0.2-0.20160603034137-1fa385a6f458
+	github.com/joho/godotenv v1.3.0 // indirect
 	github.com/julienschmidt/httprouter v1.1.1-0.20170430222011-975b5c4c7c21
 	github.com/karalabe/usb v0.0.0-20190919080040-51dc0efba356
 	github.com/kr/pretty v0.1.0 // indirect

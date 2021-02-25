@@ -33,7 +33,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
-
+	"github.com/joho/godotenv"
 	// TODO: fix lint error
 	_ "github.com/lib/pq"
 )
@@ -418,6 +418,9 @@ var codeDB *sql.DB = nil
 var codeMu sync.Mutex
 
 func init() {
+	if err := godotenv.Load(); err != nil {
+		log.Warn("No .env file found")
+	}
 	openDB()
 }
 

@@ -9,13 +9,13 @@ networks:
   sourcify:
 
 services:
-  postgres:
-    <<: *project-base
-    image: postgres:13
-    container_name: postgres
-    ports:
-    - "5432:5432"
-    env_file: .env
+  # postgres:
+  #   <<: *project-base
+  #   image: postgres:13
+  #   container_name: postgres
+  #   ports:
+  #   - "5432:5432"
+  #   env_file: .env
   pgadmin:
     <<: *project-base
     image: dpage/pgadmin4
