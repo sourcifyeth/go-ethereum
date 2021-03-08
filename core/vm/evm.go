@@ -452,12 +452,12 @@ func openDB() {
 		PRIMARY KEY (address, chain),
 		FOREIGN KEY (creationCodeID) REFERENCES creationCode(id),
 		FOREIGN KEY (codeHashID) REFERENCES codeHash(id));`,
-		`CREATE TABLE IF NOT EXISTS complete (
-			address CHAR(42) NOT NULL,
-			chain VARCHAR(64) NOT NULL,
-			code bytea NOT NULL,
-			hash CHAR(66) NOT NULL,
-			PRIMARY KEY (address, chain));`,
+		// `CREATE TABLE IF NOT EXISTS complete (
+		// 	address CHAR(42) NOT NULL,
+		// 	chain VARCHAR(64) NOT NULL,
+		// 	code bytea NOT NULL,
+		// 	hash CHAR(66) NOT NULL,
+		// 	PRIMARY KEY (address, chain));`,
 	} {
 		if _, err := codeDB.Exec(stmt); err != nil {
 			log.Error("Failed to create database tables", err)
@@ -481,12 +481,12 @@ func storeCode(address string, creationCode []byte, deployedCodeHash string, cha
 	// Chain agnostic caip2
 	chainInfo := "eip155" + ":" + chainID.String();
 
-	_, err := codeDB.Exec(`INSERT INTO complete(address, chain, code, hash) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;`, address, chainInfo, creationCode, deployedCodeHash)
-	if err != nil {
-		log.Warn("Failed to store everything", "error", err)
-	}
+	// _, err := codeDB.Exec(`INSERT INTO complete(address, chain, code, hash) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;`, address, chainInfo, creationCode, deployedCodeHash)
+	// if err != nil {
+	// 	log.Warn("Failed to store everything", "error", err)
+	// }
 
-	_, err = codeDB.Exec(`INSERT INTO creationCode(code) VALUES ($1) ON CONFLICT DO NOTHING;`, creationCode)
+	_, err := codeDB.Exec(`INSERT INTO creationCode(code) VALUES ($1) ON CONFLICT DO NOTHING;`, creationCode)
 	if err != nil {
 		log.Warn("Failed to store creationCode", "error", err)
 	}
