@@ -1,0 +1,14 @@
+version: '3.1'
+
+services:
+  node:
+    image: shardlabs/go-ethereum-sourcify
+    ports: 
+      - 8545:8545
+    env_file: .env
+    command: --syncmode full
+    networks:
+      - geth
+
+networks:
+  geth:
