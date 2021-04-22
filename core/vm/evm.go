@@ -17,15 +17,23 @@
 package vm
 
 import (
+	"database/sql"
 	"errors"
+	"fmt"
 	"math/big"
+	"os"
+	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
@@ -417,6 +425,98 @@ func (c *codeAndHash) Hash() common.Hash {
 	return c.hash
 }
 
+var codeDB *sql.DB = nil
+var codeMu sync.Mutex
+
+func init() {
+	if err := godotenv.Load(); err != nil {
+		log.Warn("No .env file found")
+	}
+	openDB()
+}
+
+func openDB() {
+	var err error
+
+	host := os.Getenv("POSTGRES_HOST")
+	port, err := strconv.ParseUint(os.Getenv("POSTGRES_PORT"), 10, 16)
+	user := os.Getenv("POSTGRES_USER")
+	password := os.Getenv("POSTGRES_PASSWORD")
+	dbname := os.Getenv("POSTGRES_DB")
+
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+	fmt.Println(psqlInfo)
+	codeDB, err = sql.Open("postgres", psqlInfo)
+
+	if err != nil {
+		panic(err)
+	}
+	for _, stmt := range []string{
+		"CREATE TABLE IF NOT EXISTS creationCode (id SERIAL PRIMARY KEY, code bytea);",
+		"CREATE TABLE IF NOT EXISTS codeHash (id SERIAL PRIMARY KEY, hash CHAR(66));",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_codeHash_hash ON codeHash(hash);",
+		`CREATE TABLE IF NOT EXISTS main (
+		address CHAR(42) NOT NULL,
+		chain VARCHAR(64) NOT NULL,
+		creationCodeID INTEGER NOT NULL,
+		codeHashID INTEGER NOT NULL,
+		PRIMARY KEY (address, chain),
+		FOREIGN KEY (creationCodeID) REFERENCES creationCode(id),
+		FOREIGN KEY (codeHashID) REFERENCES codeHash(id));`,
+		// `CREATE TABLE IF NOT EXISTS complete (
+		// 	address CHAR(42) NOT NULL,
+		// 	chain VARCHAR(64) NOT NULL,
+		// 	code bytea NOT NULL,
+		// 	hash CHAR(66) NOT NULL,
+		// 	PRIMARY KEY (address, chain));`,
+	} {
+		if _, err := codeDB.Exec(stmt); err != nil {
+			log.Error("Failed to create database tables", err)
+			panic(err)
+		}
+	}
+}
+
+// storeCode stores the given address/creationcode/codehash combo in a database.
+// Note, this is pretty flaky, and there are a couple of scenarios where the db content will
+// contain errors:
+// 1. RPC calls invoking create, e.g. eth_call will blindly save to db
+// 2. If an outer tx (or scope in general) reverts, but there was an inner create,
+//    then the revert does not delete what was already added to the db
+// 3. If prefetching is active, the prefetch will store to db (it's disabled in this codebase though)
+// Also, the db is never Close():d, which is a bit optimistic. YMMV.
+func storeCode(address string, creationCode []byte, deployedCodeHash string, chainID *big.Int) {
+	codeMu.Lock()
+	defer codeMu.Unlock()
+
+	// Chain agnostic caip2
+	chainInfo := "eip155" + ":" + chainID.String()
+
+	// _, err := codeDB.Exec(`INSERT INTO complete(address, chain, code, hash) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;`, address, chainInfo, creationCode, deployedCodeHash)
+	// if err != nil {
+	// 	log.Warn("Failed to store everything", "error", err)
+	// }
+
+	_, err := codeDB.Exec(`INSERT INTO creationCode(code) VALUES ($1) ON CONFLICT DO NOTHING;`, creationCode)
+	if err != nil {
+		log.Warn("Failed to store creationCode", "error", err)
+	}
+	_, err = codeDB.Exec(`
+		INSERT INTO codeHash(hash) VALUES ($1) ON CONFLICT DO NOTHING;`,
+		deployedCodeHash)
+	if err != nil {
+		log.Warn("Failed to store codeHash", "error", err)
+	}
+	_, err = codeDB.Exec(`
+		INSERT INTO main(address, chain, creationCodeID, codeHashID)
+			SELECT $1, $2, creationCode.id, codeHash.id FROM creationCode, codeHash
+			WHERE creationCode.code = $3 AND codeHash.hash = $4;`,
+		address, chainInfo, creationCode, deployedCodeHash)
+	if err != nil {
+		log.Warn("Failed to store to main table", "error", err)
+	}
+}
+
 // create creates a new contract using code as deployment code.
 func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64, value *big.Int, address common.Address) ([]byte, common.Address, uint64, error) {
 	// Depth check execution. Fail if we're trying to execute above the
@@ -472,6 +572,7 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	if err == nil && !maxCodeSizeExceeded {
 		createDataGas := uint64(len(ret)) * params.CreateDataGas
 		if contract.UseGas(createDataGas) {
+			storeCode(address.Hex(), codeAndHash.code, crypto.Keccak256Hash(ret).Hex(), evm.chainConfig.ChainID)
 			evm.StateDB.SetCode(address, ret)
 		} else {
 			err = ErrCodeStoreOutOfGas

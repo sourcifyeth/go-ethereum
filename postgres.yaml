@@ -1,0 +1,16 @@
+version: '3.1'
+
+services:
+  postgres:
+    image: postgres:13
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    env_file: .env
+    networks:
+      - geth
+    restart: always
+
+
+networks:
+  geth:
