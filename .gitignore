@@ -35,8 +35,6 @@ profile.cov
 # IdeaIDE
 .idea
 
-# VS Code
-.vscode
 
 # dashboard
 /dashboard/assets/flow-typed
@@ -47,3 +45,6 @@ profile.cov
 /dashboard/assets/package-lock.json
 
 **/yarn-error.log
+
+# Environment
+.env
