@@ -7,7 +7,7 @@ services:
     ports: 
       - 8545:8545
     env_file: .env
-    command: --syncmode full
+    command: --syncmode full --snapshot=false
     volumes:
       - type: bind
         source: /home/gather/geth_data/1/.ethereum
