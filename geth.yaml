@@ -9,7 +9,9 @@ services:
     env_file: .env
     command: --syncmode full
     volumes:
-      - geth:/root/.ethereum
+      - type: bind
+        source: /home/gather/geth_data/1/.ethereum
+        target: /root/.ethereum
     networks:
       - geth
 
