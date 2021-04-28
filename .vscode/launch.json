@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/cmd/geth",
-            "args": ["--goerli", "--syncmode", "full"],
+            "args": ["--goerli", "--syncmode", "full", "--snapshot=false"],
             "envFile": "${workspaceFolder}/.env"
         }
     ]
