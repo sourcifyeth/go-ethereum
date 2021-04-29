@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   node:
-    image: shardlabs/go-ethereum-sourcify:1.10.3
+    image: shardlabs/go-ethereum-sourcify:stable
     container_name: geth-mainnet
     ports: 
       - 8545:8545
