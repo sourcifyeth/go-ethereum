@@ -455,7 +455,7 @@ func openDB() {
 	for _, stmt := range []string{
 		"CREATE TABLE IF NOT EXISTS creationCode (id SERIAL PRIMARY KEY, code bytea);",
 		"CREATE TABLE IF NOT EXISTS codeHash (id SERIAL PRIMARY KEY, hash CHAR(66));",
-		"CREATE UNIQUE INDEX IF NOT EXISTS idx_codeHash_hash ON codeHash(hash);",
+		// "CREATE UNIQUE INDEX IF NOT EXISTS idx_codeHash_hash ON codeHash(hash);",
 		`CREATE TABLE IF NOT EXISTS main (
 		address CHAR(42) NOT NULL,
 		chain VARCHAR(64) NOT NULL,
