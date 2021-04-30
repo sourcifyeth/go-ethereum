@@ -518,22 +518,27 @@ func storeCode(address string, creationCode []byte, deployedCodeHash string, cha
 		log.Warn("Failed to store creationCode", "error", err)
 	}
 
-	_, err = codeDB.Exec(`
+	codeHashID := 0
+	err = codeDB.QueryRow(`
 		INSERT INTO
 			codeHash(hash)
 			VALUES ($1)
-			ON CONFLICT DO NOTHING`,
-		deployedCodeHash)
+			ON CONFLICT DO NOTHING
+			RETURNING id`,
+		deployedCodeHash).Scan(&codeHashID)
 	if err != nil {
-		log.Warn("Failed to store codeHash", "error", err)
+		log.Warn("Error in codeHash insert", "error", err)
 	}
 
-	codeHashID := 0
-	err = codeDB.QueryRow(`
+	if (codeHashID == 0) {
+		err = codeDB.QueryRow(`
 		SELECT id FROM codeHash WHERE hash = $1;
-	`, deployedCodeHash).Scan(&codeHashID)
-	if err != nil {
-		log.Warn("Failed to read from codeHash table", "error", err)
+		`, deployedCodeHash).Scan(&codeHashID)
+		if err != nil {
+			log.Warn("Failed to read from codeHash table", "error", err)
+		}
+	} else {
+		log.Info("RETURNING after INSERT succeeded; no need for SELECT")
 	}
 
 	_, err = codeDB.Exec(`
