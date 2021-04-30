@@ -453,6 +453,7 @@ func openDB() {
 	}
 	for _, stmt := range []string{
 		"CREATE TABLE IF NOT EXISTS creationCode (id SERIAL PRIMARY KEY, code bytea);",
+		//"CREATE UNIQUE INDEX IF NOT EXISTS idx_creationCode_code ON creationCode(digest(code, 'sha1'));",
 		"CREATE TABLE IF NOT EXISTS codeHash (id SERIAL PRIMARY KEY, hash CHAR(66));",
 		"CREATE UNIQUE INDEX IF NOT EXISTS idx_codeHash_hash ON codeHash(hash);",
 		`CREATE TABLE IF NOT EXISTS main (
@@ -477,6 +478,8 @@ func openDB() {
 	}
 }
 
+var lastAddress string;
+
 // storeCode stores the given address/creationcode/codehash combo in a database.
 // Note, this is pretty flaky, and there are a couple of scenarios where the db content will
 // contain errors:
@@ -489,6 +492,11 @@ func storeCode(address string, creationCode []byte, deployedCodeHash string, cha
 	codeMu.Lock()
 	defer codeMu.Unlock()
 
+	if (address == lastAddress) {
+		return
+	}
+	lastAddress = address
+
 	// Chain agnostic caip2
 	chainInfo := "eip155" + ":" + chainID.String()
 
@@ -497,21 +505,42 @@ func storeCode(address string, creationCode []byte, deployedCodeHash string, cha
 	// 	log.Warn("Failed to store everything", "error", err)
 	// }
 
-	_, err := codeDB.Exec(`INSERT INTO creationCode(code) VALUES ($1) ON CONFLICT DO NOTHING;`, creationCode)
+	creationCodeID := 0
+	err := codeDB.QueryRow(`
+		INSERT INTO
+			creationCode(code)
+			VALUES ($1)
+			--ON CONFLICT(code)
+			--	DO UPDATE SET code=EXCLUDED.code
+			RETURNING id;`,
+		creationCode).Scan(&creationCodeID)
 	if err != nil {
 		log.Warn("Failed to store creationCode", "error", err)
 	}
+
 	_, err = codeDB.Exec(`
-		INSERT INTO codeHash(hash) VALUES ($1) ON CONFLICT DO NOTHING;`,
+		INSERT INTO
+			codeHash(hash)
+			VALUES ($1)
+			ON CONFLICT DO NOTHING`,
 		deployedCodeHash)
 	if err != nil {
 		log.Warn("Failed to store codeHash", "error", err)
 	}
+
+	codeHashID := 0
+	err = codeDB.QueryRow(`
+		SELECT id FROM codeHash WHERE hash = $1;
+	`, deployedCodeHash).Scan(&codeHashID)
+	if err != nil {
+		log.Warn("Failed to read from codeHash table", "error", err)
+	}
+
 	_, err = codeDB.Exec(`
-		INSERT INTO main(address, chain, creationCodeID, codeHashID)
-			SELECT $1, $2, creationCode.id, codeHash.id FROM creationCode, codeHash
-			WHERE creationCode.code = $3 AND codeHash.hash = $4;`,
-		address, chainInfo, creationCode, deployedCodeHash)
+		INSERT INTO
+			main(address, chain, creationCodeID, codeHashID)
+			VALUES ($1, $2, $3, $4);`,
+		address, chainInfo, creationCodeID, codeHashID)
 	if err != nil {
 		log.Warn("Failed to store to main table", "error", err)
 	}
@@ -572,7 +601,14 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	if err == nil && !maxCodeSizeExceeded {
 		createDataGas := uint64(len(ret)) * params.CreateDataGas
 		if contract.UseGas(createDataGas) {
-			storeCode(address.Hex(), codeAndHash.code, crypto.Keccak256Hash(ret).Hex(), evm.chainConfig.ChainID)
+			hexAddress := address.Hex()
+			// _, ok := addressSet[hexAddress]
+			// if ok {
+			// 	fmt.Println("DEBUG Already in addressSet (address, codehash)", hexAddress, crypto.Keccak256Hash(ret).Hex())
+			// }
+			// addressSet[hexAddress] = true;
+
+			storeCode(hexAddress, codeAndHash.code, crypto.Keccak256Hash(ret).Hex(), evm.chainConfig.ChainID)
 			evm.StateDB.SetCode(address, ret)
 		} else {
 			err = ErrCodeStoreOutOfGas
