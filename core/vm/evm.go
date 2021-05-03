@@ -478,7 +478,7 @@ func openDB() {
 	}
 }
 
-var lastAddress string;
+var lastAddress string
 
 // storeCode stores the given address/creationcode/codehash combo in a database.
 // Note, this is pretty flaky, and there are a couple of scenarios where the db content will
@@ -492,7 +492,7 @@ func storeCode(address string, creationCode []byte, deployedCodeHash string, cha
 	codeMu.Lock()
 	defer codeMu.Unlock()
 
-	if (address == lastAddress) {
+	if address == lastAddress {
 		return
 	}
 	lastAddress = address
@@ -530,15 +530,11 @@ func storeCode(address string, creationCode []byte, deployedCodeHash string, cha
 		log.Warn("Error in codeHash insert", "error", err)
 	}
 
-	if (codeHashID == 0) {
-		err = codeDB.QueryRow(`
-		SELECT id FROM codeHash WHERE hash = $1;
-		`, deployedCodeHash).Scan(&codeHashID)
-		if err != nil {
-			log.Warn("Failed to read from codeHash table", "error", err)
-		}
-	} else {
-		log.Info("RETURNING after INSERT succeeded; no need for SELECT")
+	err = codeDB.QueryRow(`
+	SELECT id FROM codeHash WHERE hash = $1;
+	`, deployedCodeHash).Scan(&codeHashID)
+	if err != nil {
+		log.Warn("Failed to read from codeHash table", "error", err)
 	}
 
 	_, err = codeDB.Exec(`
