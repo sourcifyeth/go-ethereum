@@ -606,14 +606,7 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	if err == nil && !maxCodeSizeExceeded {
 		createDataGas := uint64(len(ret)) * params.CreateDataGas
 		if contract.UseGas(createDataGas) {
-			hexAddress := address.Hex()
-			// _, ok := addressSet[hexAddress]
-			// if ok {
-			// 	fmt.Println("DEBUG Already in addressSet (address, codehash)", hexAddress, crypto.Keccak256Hash(ret).Hex())
-			// }
-			// addressSet[hexAddress] = true;
-
-			storeCode(hexAddress, codeAndHash.code, crypto.Keccak256Hash(ret).Hex(), evm.chainConfig.ChainID)
+			storeCode(address.Hex(), codeAndHash.code, crypto.Keccak256Hash(ret).Hex(), evm.chainConfig.ChainID)
 			evm.StateDB.SetCode(address, ret)
 		} else {
 			err = ErrCodeStoreOutOfGas

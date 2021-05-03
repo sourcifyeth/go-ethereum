@@ -22,11 +22,6 @@ DELETE FROM codeHash
 ALTER TABLE codeHash
     DROP COLUMN realCodeHashID;
 DROP TABLE mapping;
--- DROP TABLE codeHash;
--- ALTER TABLE mapping RENAME TO codeHash;
--- ALTER TABLE codeHash
---     ADD CONSTRAINT codeHash_pkey
---     PRIMARY KEY (id);
 
 ALTER TABLE main DROP COLUMN codeHashID;
 ALTER TABLE main RENAME realCodeHashID TO codeHashID;
