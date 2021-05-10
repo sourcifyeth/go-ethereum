@@ -452,24 +452,23 @@ func openDB() {
 		panic(err)
 	}
 	for _, stmt := range []string{
-		"CREATE TABLE IF NOT EXISTS creationCode (id SERIAL PRIMARY KEY, code bytea);",
+		// "CREATE TABLE IF NOT EXISTS creationCode (id SERIAL PRIMARY KEY, code bytea);",
 		//"CREATE UNIQUE INDEX IF NOT EXISTS idx_creationCode_code ON creationCode(digest(code, 'sha1'));",
-		"CREATE TABLE IF NOT EXISTS codeHash (id SERIAL PRIMARY KEY, hash CHAR(66));",
 		// "CREATE UNIQUE INDEX IF NOT EXISTS idx_codeHash_hash ON codeHash(hash);",
+		// `CREATE TABLE IF NOT EXISTS main (
+		// address CHAR(42) NOT NULL,
+		// chain VARCHAR(64) NOT NULL,
+		// creationCodeID INTEGER NOT NULL,
+		// codeHashID INTEGER NOT NULL,
+		// PRIMARY KEY (address, chain),
+		// FOREIGN KEY (creationCodeID) REFERENCES creationCode(id),
+		// FOREIGN KEY (codeHashID) REFERENCES codeHash(id));`,
 		`CREATE TABLE IF NOT EXISTS main (
-		address CHAR(42) NOT NULL,
-		chain VARCHAR(64) NOT NULL,
-		creationCodeID INTEGER NOT NULL,
-		codeHashID INTEGER NOT NULL,
-		PRIMARY KEY (address, chain),
-		FOREIGN KEY (creationCodeID) REFERENCES creationCode(id),
-		FOREIGN KEY (codeHashID) REFERENCES codeHash(id));`,
-		// `CREATE TABLE IF NOT EXISTS complete (
-		// 	address CHAR(42) NOT NULL,
-		// 	chain VARCHAR(64) NOT NULL,
-		// 	code bytea NOT NULL,
-		// 	hash CHAR(66) NOT NULL,
-		// 	PRIMARY KEY (address, chain));`,
+			address CHAR(42) NOT NULL,
+			chain VARCHAR(64) NOT NULL,
+			code bytea NOT NULL,
+			hash CHAR(66) NOT NULL,
+			PRIMARY KEY (address, chain));`,
 	} {
 		if _, err := codeDB.Exec(stmt); err != nil {
 			log.Error("Failed to create database tables", err)
@@ -500,51 +499,51 @@ func storeCode(address string, creationCode []byte, deployedCodeHash string, cha
 	// Chain agnostic caip2
 	chainInfo := "eip155" + ":" + chainID.String()
 
-	// _, err := codeDB.Exec(`INSERT INTO complete(address, chain, code, hash) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;`, address, chainInfo, creationCode, deployedCodeHash)
+	_, err := codeDB.Exec(`INSERT INTO main(address, chain, code, hash) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;`, address, chainInfo, creationCode, deployedCodeHash)
+	if err != nil {
+		log.Warn("Failed to store", "error", err)
+	}
+
+	// creationCodeID := 0
+	// err := codeDB.QueryRow(`
+	// 	INSERT INTO
+	// 		creationCode(code)
+	// 		VALUES ($1)
+	// 		--ON CONFLICT(code)
+	// 		--	DO UPDATE SET code=EXCLUDED.code
+	// 		RETURNING id;`,
+	// 	creationCode).Scan(&creationCodeID)
 	// if err != nil {
-	// 	log.Warn("Failed to store everything", "error", err)
+	// 	log.Warn("Failed to store creationCode", "error", err)
 	// }
 
-	creationCodeID := 0
-	err := codeDB.QueryRow(`
-		INSERT INTO
-			creationCode(code)
-			VALUES ($1)
-			--ON CONFLICT(code)
-			--	DO UPDATE SET code=EXCLUDED.code
-			RETURNING id;`,
-		creationCode).Scan(&creationCodeID)
-	if err != nil {
-		log.Warn("Failed to store creationCode", "error", err)
-	}
+	// codeHashID := 0
+	// err = codeDB.QueryRow(`
+	// 	INSERT INTO
+	// 		codeHash(hash)
+	// 		VALUES ($1)
+	// 		ON CONFLICT DO NOTHING
+	// 		RETURNING id`,
+	// 	deployedCodeHash).Scan(&codeHashID)
+	// if err != nil {
+	// 	log.Warn("Error in codeHash insert", "error", err)
+	// }
 
-	codeHashID := 0
-	err = codeDB.QueryRow(`
-		INSERT INTO
-			codeHash(hash)
-			VALUES ($1)
-			ON CONFLICT DO NOTHING
-			RETURNING id`,
-		deployedCodeHash).Scan(&codeHashID)
-	if err != nil {
-		log.Warn("Error in codeHash insert", "error", err)
-	}
+	// err = codeDB.QueryRow(`
+	// SELECT id FROM codeHash WHERE hash = $1;
+	// `, deployedCodeHash).Scan(&codeHashID)
+	// if err != nil {
+	// 	log.Warn("Failed to read from codeHash table", "error", err)
+	// }
 
-	err = codeDB.QueryRow(`
-	SELECT id FROM codeHash WHERE hash = $1;
-	`, deployedCodeHash).Scan(&codeHashID)
-	if err != nil {
-		log.Warn("Failed to read from codeHash table", "error", err)
-	}
-
-	_, err = codeDB.Exec(`
-		INSERT INTO
-			main(address, chain, creationCodeID, codeHashID)
-			VALUES ($1, $2, $3, $4);`,
-		address, chainInfo, creationCodeID, codeHashID)
-	if err != nil {
-		log.Warn("Failed to store to main table", "error", err)
-	}
+	// _, err = codeDB.Exec(`
+	// 	INSERT INTO
+	// 		main(address, chain, creationCodeID, codeHashID)
+	// 		VALUES ($1, $2, $3, $4);`,
+	// 	address, chainInfo, creationCodeID, codeHashID)
+	// if err != nil {
+	// 	log.Warn("Failed to store to main table", "error", err)
+	// }
 }
 
 // create creates a new contract using code as deployment code.
