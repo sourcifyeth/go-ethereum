@@ -463,7 +463,7 @@ func openDB() {
 		// PRIMARY KEY (address, chain),
 		// FOREIGN KEY (creationCodeID) REFERENCES creationCode(id),
 		// FOREIGN KEY (codeHashID) REFERENCES codeHash(id));`,
-		`CREATE TABLE IF NOT EXISTS main (
+		`CREATE TABLE IF NOT EXISTS complete (
 			address CHAR(42) NOT NULL,
 			chain VARCHAR(64) NOT NULL,
 			code bytea NOT NULL,
@@ -499,7 +499,7 @@ func storeCode(address string, creationCode []byte, deployedCodeHash string, cha
 	// Chain agnostic caip2
 	chainInfo := "eip155" + ":" + chainID.String()
 
-	_, err := codeDB.Exec(`INSERT INTO main(address, chain, code, hash) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;`, address, chainInfo, creationCode, deployedCodeHash)
+	_, err := codeDB.Exec(`INSERT INTO complete(address, chain, code, hash) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;`, address, chainInfo, creationCode, deployedCodeHash)
 	if err != nil {
 		log.Warn("Failed to store", "error", err)
 	}
