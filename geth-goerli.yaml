@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   goerli:
-    image: shardlabs/go-ethereum-sourcify:test
+    image: shardlabs/go-ethereum-sourcify:1.10.3
     container_name: geth-goerli
     env_file: .env
     command: --syncmode full --snapshot=false --goerli
