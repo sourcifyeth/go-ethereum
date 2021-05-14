@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  ropsten:
+    image: shardlabs/go-ethereum-sourcify:1.10.3
+    container_name: geth-ropsten
+    env_file: .env
+    command: --syncmode full --snapshot=false --ropsten
+    volumes:
+      - type: bind
+        source: /home/gather/geth_data/3/.ethereum
+        target: /root/.ethereum
+    networks:
+      - geth
+
+networks:
+  geth:
+
+volumes:
+  ropsten:
