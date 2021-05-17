@@ -14,7 +14,7 @@ services:
       - geth
 
 networks:
-  geth:
+  mainnet:
 
 volumes:
-  geth:
+  mainnet:
