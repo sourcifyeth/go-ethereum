@@ -17,4 +17,4 @@ networks:
   geth:
 
 volumes:
-  geth:
+  mainnet:
