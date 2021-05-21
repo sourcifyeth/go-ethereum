@@ -5,7 +5,9 @@ services:
     image: shardlabs/go-ethereum-sourcify:1.10.3
     container_name: geth-goerli
     env_file: .env
-    command: --syncmode full --snapshot=false --goerli
+    command: --syncmode full --snapshot=false --goerli --http --http.api personal,eth,net,web3 --http.addr 0.0.0.0
+    ports:
+      - "8545:8545"
     volumes:
       - type: bind
         source: /home/gather/geth_data/5/.ethereum
