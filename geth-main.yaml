@@ -5,7 +5,9 @@ services:
     image: shardlabs/go-ethereum-sourcify:1.10.3
     container_name: geth-mainnet
     env_file: .env
-    command: --syncmode full --snapshot=false
+    command: --syncmode full --snapshot=false --http --http.api personal,eth,net,web3 --http.addr 0.0.0.0
+    ports:
+      - "8541:8545"
     volumes:
       - type: bind
         source: /home/gather/geth_data/1/.ethereum
