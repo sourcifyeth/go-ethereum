@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   rinkeby:
-    image: shardlabs/go-ethereum-sourcify:1.10.3
+    image: shardlabs/go-ethereum-sourcify:1.10.4
     container_name: geth-rinkeby
     env_file: .env
     command: --syncmode full --snapshot=false --rinkeby --http --http.api personal,eth,net,web3 --http.addr 0.0.0.0
